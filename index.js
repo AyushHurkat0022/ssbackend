@@ -20,22 +20,19 @@ const server = createServer(app);
 const PORT = process.env.PORT || 3001;
 const HOST = '0.0.0.0';
 
-// Allowed origins (frontend URLs)
+// Allowed origins
 const allowedOrigins = [
   process.env.FRONTEND_URL || 'http://localhost:3000',
-  'http://localhost:3000',
   'https://ssfrontend-ddc6l6z4i-ayushhurkat0022s-projects.vercel.app'
 ];
 
 // CORS options
 const corsOptions = {
   origin: function (origin, callback) {
-    // Allow requests with no origin (e.g., Postman, mobile apps)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1) {
+    if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error('CORS not allowed for this origin'));
+      callback(new Error(`CORS blocked for origin: ${origin}`));
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -44,18 +41,13 @@ const corsOptions = {
   optionsSuccessStatus: 200
 };
 
-// Socket.IO with same CORS origins
-const io = new Server(server, {
-  cors: {
-    origin: allowedOrigins,
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
-  }
-});
+// Apply CORS for REST APIs
+app.use(cors(corsOptions));
 
-const webSocketService = new WebSocketService(io);
+// Preflight handler
+app.options('*', cors(corsOptions));
 
-// Helmet for security
+// Helmet for security headers
 if (process.env.NODE_ENV === "production" || process.env.NODE_ENV === "staging") {
   app.use(helmet({
     contentSecurityPolicy: {
@@ -63,7 +55,7 @@ if (process.env.NODE_ENV === "production" || process.env.NODE_ENV === "staging")
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'", process.env.FRONTEND_URL || 'http://localhost:3000'],
         styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", "data:", "https:"],
+        imgSrc: ["'self'", "data:", "https:"]
       }
     },
     hsts: { maxAge: 31536000, includeSubDomains: true, preload: true }
@@ -75,13 +67,7 @@ if (process.env.NODE_ENV === "production" || process.env.NODE_ENV === "staging")
 // Rate limiter
 app.use(generalLimiter);
 
-// Enable CORS
-app.use(cors(corsOptions));
-
-// Preflight handler
-app.options('*', cors(corsOptions));
-
-// Body parsing
+// Body parsers
 app.use(express.json({ limit: REQUEST_SIZE_LIMIT }));
 app.use(express.urlencoded({ extended: true, limit: REQUEST_SIZE_LIMIT }));
 
@@ -92,27 +78,37 @@ app.use(requestLogger);
 app.get('/how-are-you-server', (req, res) => {
   res.status(200).json({
     success: true,
-    message: 'Iam good! How are you?',
+    message: 'I am good! How are you?',
     timestamp: new Date().toISOString()
   });
 });
 
-// Routes
+// API routes
 app.use("/api/v1/user", userRoutes);
 app.use("/api/v1/canvas", canvasRoutes);
 
-// Global error handler
+// Error handler
 app.use(errorHandler);
+
+// Socket.IO server
+const io = new Server(server, {
+  cors: {
+    origin: allowedOrigins,
+    credentials: true,
+    methods: ['GET','POST','PUT','DELETE','OPTIONS']
+  }
+});
+
+const webSocketService = new WebSocketService(io);
 
 // Start server
 const startServer = async () => {
   try {
     await connectToDatabase();
     server.listen(PORT, HOST, () => {
-      console.log(`Server is running on port ${PORT} and host ${HOST}`);
-      console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`CORS enabled for: ${allowedOrigins}`);
-      console.log(`WebSocket server initialized`);
+      console.log(`Server running on port ${PORT} (${process.env.NODE_ENV || 'development'})`);
+      console.log(`CORS allowed for: ${allowedOrigins}`);
+      console.log('WebSocket server initialized');
     });
   } catch (error) {
     console.error('Failed to start server:', error);
