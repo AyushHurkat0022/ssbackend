@@ -23,7 +23,8 @@ const HOST = '0.0.0.0';
 // Allowed origins (frontend URLs)
 const allowedOrigins = [
   process.env.FRONTEND_URL || 'http://localhost:3000',
-  'http://localhost:3000'
+  'http://localhost:3000',
+  'https://ssfrontend-ddc6l6z4i-ayushhurkat0022s-projects.vercel.app'
 ];
 
 // CORS options
